@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node src/index.js",
     "dev:sqlite": "node scripts/force_sqlite.js src/index.js",
+    "smoke:cart": "node tests/cart_smoke.js",
     "build": "tsc -p .",
     "start": "node dist/index.js",
     "start:sqlite": "node scripts/force_sqlite.js dist/index.js"
