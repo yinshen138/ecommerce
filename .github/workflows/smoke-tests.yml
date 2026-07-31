@@ -20,6 +20,12 @@ jobs:
         working-directory: backend
         run: npm ci
 
+      - name: Init SQLite DB (create schema + seed)
+        working-directory: backend
+        run: |
+          set -e
+          node scripts/init_sqlite.js
+
       - name: Start backend (SQLite) and wait for health
         working-directory: backend
         run: |
