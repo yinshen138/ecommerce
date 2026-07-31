@@ -24,7 +24,14 @@ jobs:
         working-directory: backend
         run: |
           set -e
-          node scripts/init_sqlite.js
+          if command -v sqlite3 >/dev/null 2>&1; then
+            echo "Using sqlite3 CLI to init DB"
+            sqlite3 dev.sqlite3 < db/sqlite_schema.sql || true
+            sqlite3 dev.sqlite3 < db/sqlite_seed.sql || true
+          else
+            echo "sqlite3 CLI not found, falling back to node script"
+            node scripts/init_sqlite.js
+          fi
 
       - name: Start backend (SQLite) and wait for health
         working-directory: backend
