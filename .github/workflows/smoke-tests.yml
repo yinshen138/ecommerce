@@ -26,8 +26,8 @@ jobs:
           set -e
           if command -v sqlite3 >/dev/null 2>&1; then
             echo "Using sqlite3 CLI to init DB"
-            sqlite3 dev.sqlite3 < db/sqlite_schema.sql || true
-            sqlite3 dev.sqlite3 < db/sqlite_seed.sql || true
+            sqlite3 dev.sqlite3 < ../db/sqlite_schema.sql || true
+            sqlite3 dev.sqlite3 < ../db/sqlite_seed.sql || true
           else
             echo "sqlite3 CLI not found, falling back to node script"
             node scripts/init_sqlite.js
