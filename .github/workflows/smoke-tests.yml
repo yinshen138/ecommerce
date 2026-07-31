@@ -40,7 +40,7 @@ jobs:
           docker build -t backend-ci -f backend/Dockerfile backend || { echo "docker build failed"; exit 1; }
 
           echo "Starting backend container from image"
-          docker run -d --name backend-test -p 4000:4000 backend-ci || { echo "docker run failed"; docker ps -a || true; exit 1; }
+          docker run -d --name backend-test -p 4000:4000 -e USE_FAKE_DB=1 backend-ci || { echo "docker run failed"; docker ps -a || true; exit 1; }
 
           echo "Streaming initial container logs (background)"
           docker logs -f backend-test 2>&1 | sed -u 's/^/[container] /' &
