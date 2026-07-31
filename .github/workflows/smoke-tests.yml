@@ -33,17 +33,17 @@ jobs:
             node scripts/init_sqlite.js
           fi
 
-      - name: Build and start backend container, then wait for health
+      - name: Start backend (host) with USE_FAKE_DB and wait for health
+        working-directory: backend
         run: |
           set -e
-          echo "Building backend Docker image (shows npm install/build errors)"
-          docker build -t backend-ci -f backend/Dockerfile backend || { echo "docker build failed"; exit 1; }
+          echo "Starting backend on runner with USE_FAKE_DB=1"
+          export USE_FAKE_DB=1
+          npm run dev:sqlite &> server.log &
+          echo $! > server.pid
 
-          echo "Starting backend container from image"
-          docker run -d --name backend-test -p 4000:4000 -e USE_FAKE_DB=1 backend-ci || { echo "docker run failed"; docker ps -a || true; exit 1; }
-
-          echo "Streaming initial container logs (background)"
-          docker logs -f backend-test 2>&1 | sed -u 's/^/[container] /' &
+          echo "Tailing server.log in background"
+          (sleep 1; tail -n +1 -f server.log) &
 
           echo "Waiting for API health..."
           for i in {1..60}; do
@@ -51,16 +51,15 @@ jobs:
               echo "Server ready"
               break
             fi
-            echo "health check attempt $i failed; printing last container logs:"
-            docker logs --tail 50 backend-test || true
+            echo "health check attempt $i failed; showing server.log tail:"
+            tail -n 50 server.log || true
             sleep 1
           done
 
           if ! curl -sSf http://localhost:4000/api/health >/dev/null 2>&1; then
-            echo "Server failed to start. Full container logs:" 
-            docker logs backend-test || true
-            docker ps -a || true
-            docker inspect backend-test || true
+            echo "Server failed to start. Dumping server.log:"
+            cat server.log || true
+            ps aux || true
             exit 1
           fi
 
@@ -70,9 +69,10 @@ jobs:
 
       - name: Stop backend
         if: always()
+        working-directory: backend
         run: |
-          echo "Cleaning up container"
-          docker stop backend-test || true
-          docker rm backend-test || true
-          docker image rm backend-ci || true
+          if [ -f server.pid ]; then
+            kill "$(cat server.pid)" || true
+            rm -f server.pid
+          fi
           sleep 1
