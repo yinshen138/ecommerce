@@ -1,6 +1,8 @@
-// Simple adapter: use SQLite if SQLITE_PATH set, otherwise use Postgres db.js
+// Simple adapter: support an in-memory fake adapter for CI/tests, else SQLite if SQLITE_PATH set, otherwise Postgres db.js
 let adapter
-if (process.env.SQLITE_PATH || process.env.NODE_ENV === 'development' && !process.env.DATABASE_URL) {
+if (process.env.USE_FAKE_DB === '1' || process.env.GITHUB_ACTIONS === 'true') {
+  adapter = require('./db_memory')
+} else if (process.env.SQLITE_PATH || (process.env.NODE_ENV === 'development' && !process.env.DATABASE_URL)) {
   adapter = require('./db_sqlite')
 } else {
   adapter = require('./db')
