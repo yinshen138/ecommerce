@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>E-commerce B2C — Static Frontend</title>
+    <style>body{font-family:Inter,Arial,sans-serif;background:#f7fafc;color:#1a202c;padding:2rem}</style>
+  </head>
+  <body>
+    <h1>E-commerce B2C — Static Frontend (Placeholder)</h1>
+    <p>This is a lightweight placeholder frontend while Next.js dev issue is investigated.</p>
+    <div id="products">Loading products...</div>
+    <script>
+      fetch('http://localhost:4000/api/products')
+        .then(r=>r.json()).then(data=>{
+          const el = document.getElementById('products');
+          el.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        }).catch(err=>{ document.getElementById('products').textContent = 'Error fetching products: '+err })
+    </script>
+  </body>
+</html>
