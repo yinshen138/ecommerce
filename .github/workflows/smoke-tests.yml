@@ -33,12 +33,17 @@ jobs:
             node scripts/init_sqlite.js
           fi
 
-      - name: Start backend (SQLite) in Docker and wait for health
+      - name: Build and start backend container, then wait for health
         run: |
           set -e
-          echo "Starting backend inside node:18 Docker container"
-          docker run -d --name backend-test -p 4000:4000 -v "$PWD/backend":/app -w /app node:18 bash -lc "npm ci --no-audit --prefer-offline && npm run dev:sqlite" > container.id || true
-          sleep 1
+          echo "Building backend Docker image (shows npm install/build errors)"
+          docker build -t backend-ci -f backend/Dockerfile backend || { echo "docker build failed"; exit 1; }
+
+          echo "Starting backend container from image"
+          docker run -d --name backend-test -p 4000:4000 backend-ci || { echo "docker run failed"; docker ps -a || true; exit 1; }
+
+          echo "Streaming initial container logs (background)"
+          docker logs -f backend-test 2>&1 | sed -u 's/^/[container] /' &
 
           echo "Waiting for API health..."
           for i in {1..60}; do
@@ -46,13 +51,16 @@ jobs:
               echo "Server ready"
               break
             fi
+            echo "health check attempt $i failed; printing last container logs:"
+            docker logs --tail 50 backend-test || true
             sleep 1
           done
 
           if ! curl -sSf http://localhost:4000/api/health >/dev/null 2>&1; then
-            echo "Server failed to start. Attempting to show container logs:"
+            echo "Server failed to start. Full container logs:" 
             docker logs backend-test || true
             docker ps -a || true
+            docker inspect backend-test || true
             exit 1
           fi
 
@@ -66,4 +74,5 @@ jobs:
           echo "Cleaning up container"
           docker stop backend-test || true
           docker rm backend-test || true
+          docker image rm backend-ci || true
           sleep 1
