@@ -1,4 +1,4 @@
-name: Backend Smoke Tests (cart)
+name: Backend Smoke Tests
 
 on:
   pull_request:
@@ -63,9 +63,12 @@ jobs:
             exit 1
           fi
 
-      - name: Run cart smoke test
+      - name: Run smoke tests (cart/order/payment)
         working-directory: backend
-        run: npm run smoke:cart
+        run: |
+          npm run smoke:cart
+          npm run smoke:order
+          npm run smoke:payment
 
       - name: Stop backend
         if: always()

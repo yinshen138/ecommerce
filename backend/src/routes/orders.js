@@ -135,6 +135,15 @@ module.exports = function attachOrderRoutes(app) {
       return res.json({ order, items: orderItems.get(order.id) || [] })
     })
 
+    app.post('/api/orders/:id/cancel', (req, res) => {
+      const order = orders.get(req.params.id)
+      if (!order) return res.status(404).json({ error: 'not_found' })
+      if (order.status !== 'created') return res.status(409).json({ error: 'invalid_status_transition', current_status: order.status })
+      order.status = 'cancelled'
+      order.updated_at = nowStr()
+      return res.json({ success: true, order_id: order.id, status: 'cancelled' })
+    })
+
     return
   }
 
