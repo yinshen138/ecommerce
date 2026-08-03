@@ -7,6 +7,7 @@ const { query } = require('./db_adapter')
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 // attach auth middleware (adds req.user when Authorization: Bearer <token> present)
 app.use(authMiddleware());
