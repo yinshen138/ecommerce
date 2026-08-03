@@ -24,6 +24,8 @@ export default function Home() {
           <Link href="/cart"><a className="px-3 py-1 bg-gray-700 text-white rounded">Cart</a></Link>
           <Link href="/checkout"><a className="px-3 py-1 bg-indigo-600 text-white rounded">Checkout</a></Link>
           <Link href="/orders"><a className="px-3 py-1 bg-blue-700 text-white rounded">Orders</a></Link>
+          <Link href="/admin/orders"><a className="px-3 py-1 bg-slate-900 text-white rounded">Admin Orders</a></Link>
+          <Link href="/admin/refunds"><a className="px-3 py-1 bg-slate-700 text-white rounded">Admin Refunds</a></Link>
         </div>
 
         {loading && <div>Loading products...</div>}
