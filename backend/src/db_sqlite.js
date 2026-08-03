@@ -6,19 +6,15 @@ const dbPath = process.env.SQLITE_PATH || path.join(__dirname, '..', '..', 'dev.
 const initSchemaPath = process.env.SQLITE_SCHEMA_PATH || path.join(__dirname, '..', '..', 'db', 'sqlite_schema.sql')
 const seedPath = process.env.SQLITE_SEED_PATH || path.join(__dirname, '..', '..', 'db', 'sqlite_seed.sql')
 
-let db
-if (!fs.existsSync(dbPath)) {
-  db = new Database(dbPath)
-  if (fs.existsSync(initSchemaPath)) {
-    const sql = fs.readFileSync(initSchemaPath, 'utf8')
-    db.exec(sql)
-  }
-  if (fs.existsSync(seedPath)) {
-    const s = fs.readFileSync(seedPath, 'utf8')
-    db.exec(s)
-  }
-} else {
-  db = new Database(dbPath)
+const isNewDb = !fs.existsSync(dbPath)
+const db = new Database(dbPath)
+if (fs.existsSync(initSchemaPath)) {
+  const sql = fs.readFileSync(initSchemaPath, 'utf8')
+  db.exec(sql)
+}
+if (isNewDb && fs.existsSync(seedPath)) {
+  const s = fs.readFileSync(seedPath, 'utf8')
+  db.exec(s)
 }
 
 function query(sql, params) {
