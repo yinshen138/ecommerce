@@ -13,6 +13,8 @@ app.use(authMiddleware());
 
 // attach cart routes
 require('./routes/cart')(app);
+require('./routes/orders')(app);
+require('./routes/payments')(app);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
