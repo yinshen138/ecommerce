@@ -27,15 +27,16 @@ async function run() {
   if (!res.ok) throw new Error('create order failed: ' + res.status + ' ' + JSON.stringify(await jsonRes(res)))
   const created = await jsonRes(res)
   console.log('CREATED', created)
-  if (!created.order_id) throw new Error('missing order_id')
+  const orderId = created.order_id || (created.order && created.order.id)
+  if (!orderId) throw new Error('missing order_id')
 
-  res = await fetch(BASE + '/api/orders/' + created.order_id)
+  res = await fetch(BASE + '/api/orders/' + orderId)
   if (!res.ok) throw new Error('fetch order failed: ' + res.status + ' ' + JSON.stringify(await jsonRes(res)))
   const detail = await jsonRes(res)
   console.log('DETAIL', detail)
   if (!detail.items || detail.items.length === 0) throw new Error('order items missing')
 
-  res = await fetch(BASE + '/api/orders/' + created.order_id + '/cancel', {
+  res = await fetch(BASE + '/api/orders/' + orderId + '/cancel', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason: 'smoke_test_cancel' })
@@ -44,7 +45,7 @@ async function run() {
   const cancelled = await jsonRes(res)
   console.log('CANCELLED', cancelled)
 
-  res = await fetch(BASE + '/api/orders/' + created.order_id)
+  res = await fetch(BASE + '/api/orders/' + orderId)
   if (!res.ok) throw new Error('fetch cancelled order failed: ' + res.status + ' ' + JSON.stringify(await jsonRes(res)))
   const detailAfterCancel = await jsonRes(res)
   if (!detailAfterCancel.order || detailAfterCancel.order.status !== 'cancelled') throw new Error('order status not cancelled')

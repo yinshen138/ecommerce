@@ -17,11 +17,13 @@ async function run() {
   if (!res.ok) throw new Error('create order failed: ' + res.status + ' ' + JSON.stringify(await jsonRes(res)))
   const order = await jsonRes(res)
   console.log('ORDER_CREATED', order)
+  const orderId = order.order_id || (order.order && order.order.id)
+  if (!orderId) throw new Error('missing order_id')
 
   res = await fetch(BASE + '/api/payments/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ order_id: order.order_id, gateway: 'alipay' })
+    body: JSON.stringify({ order_id: orderId, gateway: 'alipay' })
   })
   if (!res.ok) throw new Error('create payment failed: ' + res.status + ' ' + JSON.stringify(await jsonRes(res)))
   const payment = await jsonRes(res)
@@ -36,7 +38,7 @@ async function run() {
   const notified = await jsonRes(res)
   console.log('PAYMENT_NOTIFIED', notified)
 
-  res = await fetch(BASE + '/api/orders/' + order.order_id)
+  res = await fetch(BASE + '/api/orders/' + orderId)
   if (!res.ok) throw new Error('fetch paid order failed: ' + res.status + ' ' + JSON.stringify(await jsonRes(res)))
   const orderAfter = await jsonRes(res)
   console.log('ORDER_AFTER_PAYMENT', orderAfter)
