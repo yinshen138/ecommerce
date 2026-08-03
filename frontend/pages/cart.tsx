@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
+
 export default function CartPage() {
   const [cart, setCart] = useState<any>(null)
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('http://localhost:4001/api/cart')
+    fetch(`${API_BASE}/api/cart`)
       .then((r) => r.json())
       .then((data) => {
         setCart(data.cart)
@@ -17,14 +19,14 @@ export default function CartPage() {
   }, [])
 
   const updateQty = (id: string, qty: number) => {
-    fetch(`http://localhost:4001/api/cart/items/${id}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ qty }) })
+    fetch(`${API_BASE}/api/cart/items/${id}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ qty }) })
       .then(r=>r.json()).then(data=>{
         setItems(items.map(it => it.id === id ? data.item : it))
       }).catch(()=>{})
   }
 
   const removeItem = (id: string) => {
-    fetch(`http://localhost:4001/api/cart/items/${id}`, { method: 'DELETE' })
+    fetch(`${API_BASE}/api/cart/items/${id}`, { method: 'DELETE' })
       .then(r=>r.json()).then(()=> setItems(items.filter(it=>it.id!==id)))
   }
 

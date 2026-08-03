@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
+
 export default function Home() {
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('http://localhost:4001/api/products')
+    fetch(`${API_BASE}/api/products`)
       .then((r) => r.json())
       .then((data) => setProducts(data.products || []))
       .catch(() => setProducts([]))
