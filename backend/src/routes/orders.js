@@ -7,8 +7,8 @@ function nowStr() {
   return new Date().toISOString().replace('T', ' ').split('.')[0]
 }
 
-function q(isSqlite, sqliteSql, pgSql, params) {
-  return query(isSqlite ? sqliteSql : pgSql, params)
+function q(isSqlite, sqliteSql, pgSql, sqliteParams, pgParams = sqliteParams) {
+  return query(isSqlite ? sqliteSql : pgSql, isSqlite ? sqliteParams : pgParams)
 }
 
 async function calculatePricing(isSqlite, items, couponCode, isFlashSale) {
@@ -228,7 +228,8 @@ module.exports = function attachOrderRoutes(app) {
           isSqlite,
           `UPDATE inventory SET available = available - ?, reserved = reserved + ?, updated_at = datetime('now') WHERE variant_id = ?`,
           `UPDATE inventory SET available = available - $1, reserved = reserved + $1, updated_at = now() WHERE variant_id = $2`,
-          [line.qty, line.qty, line.variant_id]
+          [line.qty, line.qty, line.variant_id],
+          [line.qty, line.variant_id]
         )
         await q(
           isSqlite,
@@ -352,7 +353,8 @@ module.exports = function attachOrderRoutes(app) {
         isSqlite,
         `SELECT id FROM orders WHERE status = 'created' AND created_at <= datetime('now', ?)`,
         `SELECT id FROM orders WHERE status = 'created' AND created_at <= (now() - ($1 || ' minutes')::interval)`,
-        [`-${timeoutMinutes} minutes`, String(timeoutMinutes)]
+        [`-${timeoutMinutes} minutes`],
+        [String(timeoutMinutes)]
       )
       const orderIds = (expiredRes.rows || []).map((r) => r.id)
       let released = 0
@@ -399,7 +401,8 @@ async function cancelCreatedOrder(isSqlite, orderId, reason) {
         isSqlite,
         `UPDATE inventory SET available = available + ?, reserved = CASE WHEN reserved - ? < 0 THEN 0 ELSE reserved - ? END, updated_at = datetime('now') WHERE variant_id = ?`,
         `UPDATE inventory SET available = available + $1, reserved = GREATEST(0, reserved - $1), updated_at = now() WHERE variant_id = $2`,
-        [item.qty, item.qty, item.qty, item.variant_id]
+        [item.qty, item.qty, item.qty, item.variant_id],
+        [item.qty, item.variant_id]
       )
     }
 
