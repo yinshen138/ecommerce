@@ -32,6 +32,10 @@ CI (GitHub Actions):
 - PostgreSQL CI strategy decision:
   - Keep pull_request CI fast and stable with USE_FAKE_DB=1 smoke tests as the default gate.
   - Run PostgreSQL-backed integration tests as a separate non-blocking workflow (manual/scheduled), to avoid flaky native sqlite issues while still validating real SQL behavior on a regular cadence.
+  - Independent workflow: `.github/workflows/postgres-integration.yml`
+    - Trigger: `workflow_dispatch` + daily schedule.
+    - Uses a real Postgres service (`postgres:16`), applies `db/schema.sql` and `db/postgres_ci_seed.sql`, then runs `smoke:cart/order/payment/admin`.
+    - Uses `SMOKE_VARIANT_ID=00000000-0000-0000-0000-000000000001` to validate real-DB order/payment/admin paths.
 
 Payment integration (sandbox + real):
 - `POST /api/payments/create` now supports:
