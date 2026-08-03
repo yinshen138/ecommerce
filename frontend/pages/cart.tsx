@@ -1,14 +1,26 @@
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/router'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
 
 export default function CartPage() {
+  const router = useRouter()
   const [cart, setCart] = useState<any>(null)
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [cartId, setCartId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/cart`)
+    const fromQuery = typeof router.query.cart_id === 'string' ? router.query.cart_id : null
+    const fromStorage = typeof window !== 'undefined' ? localStorage.getItem('cart_id') : null
+    const id = fromQuery || fromStorage
+    if (id) {
+      if (typeof window !== 'undefined') localStorage.setItem('cart_id', id)
+      setCartId(id)
+    }
+    const url = id ? `${API_BASE}/api/cart?cart_id=${encodeURIComponent(id)}` : `${API_BASE}/api/cart`
+    fetch(url)
       .then((r) => r.json())
       .then((data) => {
         setCart(data.cart)
@@ -16,7 +28,7 @@ export default function CartPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [router.query.cart_id])
 
   const updateQty = (id: string, qty: number) => {
     fetch(`${API_BASE}/api/cart/items/${id}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ qty }) })
@@ -35,6 +47,12 @@ export default function CartPage() {
   return (
     <main className="p-8 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Shopping Cart</h1>
+      <div className="mb-4 flex gap-3">
+        <Link href={cartId ? `/checkout?cart_id=${cartId}` : '/checkout'}>
+          <a className="px-3 py-1 bg-indigo-600 text-white rounded">Checkout</a>
+        </Link>
+        <Link href="/orders"><a className="px-3 py-1 bg-blue-700 text-white rounded">Orders</a></Link>
+      </div>
       {!cart && <div>Your cart is empty</div>}
       {items.length === 0 && <div>No items</div>}
       <ul className="space-y-3">

@@ -20,6 +20,11 @@ export default function Home() {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-4">E-commerce B2C (MVP)</h1>
         <p className="text-gray-600 mb-6">Next.js + TypeScript + Tailwind. Browse products and open details.</p>
+        <div className="mb-6 flex gap-3">
+          <Link href="/cart"><a className="px-3 py-1 bg-gray-700 text-white rounded">Cart</a></Link>
+          <Link href="/checkout"><a className="px-3 py-1 bg-indigo-600 text-white rounded">Checkout</a></Link>
+          <Link href="/orders"><a className="px-3 py-1 bg-blue-700 text-white rounded">Orders</a></Link>
+        </div>
 
         {loading && <div>Loading products...</div>}
         {!loading && (
