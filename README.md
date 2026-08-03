@@ -33,4 +33,33 @@ CI (GitHub Actions):
   - Keep pull_request CI fast and stable with USE_FAKE_DB=1 smoke tests as the default gate.
   - Run PostgreSQL-backed integration tests as a separate non-blocking workflow (manual/scheduled), to avoid flaky native sqlite issues while still validating real SQL behavior on a regular cadence.
 
+Payment integration (sandbox + real):
+- `POST /api/payments/create` now supports:
+  - `PAYMENT_PROVIDER_MODE=sandbox` (default): returns sandbox payment URL.
+  - `PAYMENT_PROVIDER_MODE=real`: signs and prepares real gateway payment requests.
+- Provider callbacks:
+  - Alipay callback: `POST /api/payments/notify/alipay`
+  - WeChat Pay callback: `POST /api/payments/notify/wechat`
+  - Generic callback for local tests: `POST /api/payments/notify`
+
+Required env vars for real mode:
+- Alipay:
+  - `ALIPAY_APP_ID`
+  - `ALIPAY_PRIVATE_KEY` (PEM, supports `\\n`)
+  - `ALIPAY_PUBLIC_KEY` (for callback verify; can set `ALIPAY_NOTIFY_SKIP_VERIFY=1` for non-production debug)
+  - `ALIPAY_NOTIFY_URL`
+  - Optional: `ALIPAY_RETURN_URL`, `ALIPAY_GATEWAY_URL`
+- WeChat Pay v3:
+  - `WECHAT_APP_ID`
+  - `WECHAT_MCH_ID`
+  - `WECHAT_SERIAL_NO`
+  - `WECHAT_PRIVATE_KEY` (PEM, supports `\\n`)
+  - `WECHAT_NOTIFY_URL`
+  - `WECHAT_API_V3_KEY` (used to decrypt callback resource payload)
+  - Optional: `WECHAT_API_BASE_URL` (default `https://api.mch.weixin.qq.com`)
+
+Notes:
+- For production, callback signature verification should be strictly enabled with official platform keys/certs.
+- The current implementation updates order/payment status in DB after successful provider callback handling.
+
 See session plan.md for design details and next steps.
