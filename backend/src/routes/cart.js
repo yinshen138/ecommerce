@@ -1,7 +1,7 @@
 const { query } = require('../db_adapter')
 
-// In CI we may still hit native sqlite issues. Provide an opt-in in-memory DB for smoke tests.
-const USE_FAKE_DB = process.env.USE_FAKE_DB === '1' || process.env.GITHUB_ACTIONS === 'true'
+// Provide an opt-in in-memory DB for smoke tests.
+const USE_FAKE_DB = process.env.USE_FAKE_DB === '1'
 
 module.exports = function attachCartRoutes(app) {
   if (USE_FAKE_DB) {

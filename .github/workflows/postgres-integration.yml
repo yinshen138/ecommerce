@@ -1,0 +1,94 @@
+name: PostgreSQL Integration Tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
+
+jobs:
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ecommerce_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ecommerce_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/ecommerce_ci
+      BASE_URL: http://localhost:4000
+      PAYMENT_PROVIDER_MODE: sandbox
+      SMOKE_VARIANT_ID: 00000000-0000-0000-0000-000000000001
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: |
+          if command -v psql >/dev/null 2>&1; then
+            psql --version
+            exit 0
+          fi
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Initialize PostgreSQL schema and seed
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/schema.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/postgres_ci_seed.sql
+
+      - name: Start backend and wait for health
+        working-directory: backend
+        run: |
+          set -e
+          npm run dev &> server.log &
+          echo $! > server.pid
+          for i in {1..60}; do
+            if curl -sSf "$BASE_URL/api/health" >/dev/null 2>&1; then
+              echo "Server ready"
+              break
+            fi
+            sleep 1
+          done
+          curl -sSf "$BASE_URL/api/health" >/dev/null 2>&1
+
+      - name: Run PostgreSQL integration smoke tests
+        working-directory: backend
+        run: |
+          npm run smoke:cart
+          npm run smoke:order
+          npm run smoke:payment
+          npm run smoke:admin
+
+      - name: Dump server log on failure
+        if: failure()
+        working-directory: backend
+        run: cat server.log || true
+
+      - name: Stop backend
+        if: always()
+        working-directory: backend
+        run: |
+          if [ -f server.pid ]; then
+            kill "$(cat server.pid)" || true
+            rm -f server.pid
+          fi

@@ -1,6 +1,7 @@
 const fetch = require('node-fetch')
 
 const BASE = process.env.BASE_URL || 'http://localhost:4000'
+const VARIANT_ID = process.env.SMOKE_VARIANT_ID || 'var-1'
 
 async function jsonRes(res){
   const txt = await res.text()
@@ -13,7 +14,7 @@ async function run(){
   let res = await fetch(BASE + '/api/cart/items', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ variant_id: 'var-1', qty: 1 })
+    body: JSON.stringify({ variant_id: VARIANT_ID, qty: 1 })
   })
   if (!res.ok) throw new Error('POST failed: '+res.status)
   const created = await jsonRes(res)
