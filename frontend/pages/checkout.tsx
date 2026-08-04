@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
+import { supabase } from '../lib/supabase'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001'
 
@@ -16,9 +17,12 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [addresses, setAddresses] = useState<any[]>([])
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
+
   const checkoutPayload = useMemo(
-    () => ({ items: items.map((it) => ({ variant_id: it.variant_id, qty: it.qty })), coupon_code: couponCode || undefined }),
-    [items, couponCode]
+    () => ({ items: items.map((it) => ({ variant_id: it.variant_id, qty: it.qty })), coupon_code: couponCode || undefined, address_id: selectedAddressId || undefined }),
+    [items, couponCode, selectedAddressId]
   )
 
   useEffect(() => {
@@ -46,20 +50,47 @@ export default function CheckoutPage() {
     fetch(`${API_BASE}/api/checkout/preview`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(checkoutPayload)
+      body: JSON.stringify({ items: items.map((it) => ({ variant_id: it.variant_id, qty: it.qty })), coupon_code: couponCode || undefined })
     })
       .then((r) => r.json())
       .then((data) => setPreview(data))
       .catch(() => setPreview(null))
-  }, [checkoutPayload, items.length])
+  }, [couponCode, items.length])
+
+  useEffect(() => {
+    // load user addresses when checkout opens
+    let mounted = true
+    async function loadAddresses() {
+      try {
+        const s = await supabase.auth.getSession()
+        const token = s.data.session?.access_token
+        if (!token) return
+        const r = await fetch(`${API_BASE}/api/addresses`, { headers: { Authorization: `Bearer ${token}` } })
+        if (!r.ok) return
+        const data = await r.json()
+        if (mounted) {
+          setAddresses(data.addresses || [])
+          const def = (data.addresses || []).find((a:any) => a.is_default)
+          if (def) setSelectedAddressId(def.id)
+        }
+      } catch (err) {
+        console.warn('Could not load addresses', err)
+      }
+    }
+    loadAddresses()
+    return () => { mounted = false }
+  }, [])
 
   const placeOrder = async () => {
     setSubmitting(true)
     setError(null)
     try {
+      // include supabase token if available
+      const s = await supabase.auth.getSession()
+      const token = s.data.session?.access_token
       const r = await fetch(`${API_BASE}/api/orders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(checkoutPayload)
       })
       const data = await r.json()
@@ -88,6 +119,24 @@ export default function CheckoutPage() {
       {items.length === 0 && <div>No items to checkout.</div>}
       {items.length > 0 && (
         <>
+          <div className="mb-4">
+            <h2 className="font-medium mb-2">Shipping address</h2>
+            {addresses.length === 0 && <div className="mb-2">No addresses saved. <Link href="/addresses"><a className="text-blue-600">Manage addresses</a></Link></div>}
+            {addresses.length > 0 && (
+              <div className="space-y-2 mb-2">
+                {addresses.map((a) => (
+                  <label key={a.id} className={`block border p-3 rounded ${selectedAddressId === a.id ? 'ring-2 ring-indigo-400' : ''}`}>
+                    <input type="radio" name="address" checked={selectedAddressId === a.id} onChange={() => setSelectedAddressId(a.id)} className="mr-2" />
+                    <div><strong>{a.full_name || a.user_id}</strong> {a.is_default && <span className="text-sm text-gray-500">(default)</span>}</div>
+                    <div>{a.line1}, {a.city} {a.postal_code || ''}</div>
+                    <div>{a.phone || ''}</div>
+                  </label>
+                ))}
+              </div>
+            )}
+            <div><Link href="/addresses"><a className="px-3 py-1 bg-green-600 text-white rounded">Manage addresses</a></Link></div>
+          </div>
+
           <ul className="space-y-2 mb-4">
             {items.map((it) => (
               <li key={it.id} className="border rounded p-3 flex justify-between">
