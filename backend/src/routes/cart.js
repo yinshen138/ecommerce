@@ -149,6 +149,44 @@ module.exports = function attachCartRoutes(app) {
     }
   })
 
+  // bulk update cart items (array of {id, qty})
+  app.patch('/api/cart/items', async (req, res) => {
+    try {
+      const updates = Array.isArray(req.body.updates) ? req.body.updates : []
+      if (updates.length === 0) return res.status(400).json({ error: 'invalid_payload' })
+      const isSqlite = !process.env.DATABASE_URL
+      const results = []
+      for (const u of updates) {
+        if (!u.id || typeof u.qty !== 'number') continue
+        if (isSqlite) await query('UPDATE cart_items SET qty = ? WHERE id = ?', [u.qty, u.id])
+        else await query('UPDATE cart_items SET qty = $1 WHERE id = $2', [u.qty, u.id])
+        const r = isSqlite ? await query('SELECT * FROM cart_items WHERE id = ?', [u.id]) : await query('SELECT * FROM cart_items WHERE id = $1', [u.id])
+        if (r.rows && r.rows[0]) results.push(r.rows[0])
+      }
+      return res.json({ items: results })
+    } catch (err) {
+      console.error('Error bulk updating cart items', err)
+      return res.status(500).json({ error: 'internal_error' })
+    }
+  })
+
+  // delete cart items in bulk (body: { ids: [id...] })
+  app.delete('/api/cart/items', async (req, res) => {
+    try {
+      const ids = Array.isArray(req.body.ids) ? req.body.ids : []
+      if (ids.length === 0) return res.status(400).json({ error: 'invalid_payload' })
+      const isSqlite = !process.env.DATABASE_URL
+      for (const id of ids) {
+        if (isSqlite) await query('DELETE FROM cart_items WHERE id = ?', [id])
+        else await query('DELETE FROM cart_items WHERE id = $1', [id])
+      }
+      return res.json({ success: true })
+    } catch (err) {
+      console.error('Error bulk deleting cart items', err)
+      return res.status(500).json({ error: 'internal_error' })
+    }
+  })
+
   // delete cart item
   app.delete('/api/cart/items/:id', async (req, res) => {
     try {

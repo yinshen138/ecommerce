@@ -18,6 +18,7 @@ require('./routes/orders')(app);
 require('./routes/payments')(app);
 require('./routes/admin')(app);
 require('./routes/addresses')(app);
+require('./routes/members')(app);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
