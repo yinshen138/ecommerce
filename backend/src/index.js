@@ -17,6 +17,8 @@ require('./routes/cart')(app);
 require('./routes/orders')(app);
 require('./routes/payments')(app);
 require('./routes/admin')(app);
+require('./routes/addresses')(app);
+require('./routes/members')(app);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
@@ -26,11 +28,51 @@ app.get('/api/auth/me', (req, res) => {
   return res.json({ user: req.user })
 })
 
-// products list using DB (simple)
+// products list using DB (supports search, filters, sort)
 app.get('/api/products', async (req, res) => {
   try {
-    const sql = "SELECT p.id, p.title, p.description, p.price_cents, p.list_price_cents, p.status FROM products p WHERE p.status = 'published' ORDER BY p.created_at DESC LIMIT 50"
-    const result = await query(sql)
+    const isSqlite = !process.env.DATABASE_URL
+    const q = typeof req.query.q === 'string' && req.query.q.trim() ? req.query.q.trim() : null
+    const category = typeof req.query.category === 'string' && req.query.category.trim() ? req.query.category.trim() : null
+    const minPrice = typeof req.query.min_price === 'string' && req.query.min_price !== '' ? Number(req.query.min_price) : null
+    const maxPrice = typeof req.query.max_price === 'string' && req.query.max_price !== '' ? Number(req.query.max_price) : null
+    const sort = typeof req.query.sort === 'string' ? req.query.sort : 'newest'
+    const limit = Math.min(100, Number(req.query.limit) || 50)
+    const page = Math.max(0, Number(req.query.page) || 0)
+
+    const where = ["p.status = 'published'"]
+    const params = []
+
+    if (q) {
+      if (isSqlite) { where.push('(p.title LIKE ? OR p.description LIKE ?)'); params.push('%' + q + '%', '%' + q + '%') }
+      else { where.push('(p.title ILIKE $' + (params.length + 1) + ' OR p.description ILIKE $' + (params.length + 2) + ')'); params.push('%' + q + '%', '%' + q + '%') }
+    }
+    if (category) {
+      if (isSqlite) { where.push('p.category = ?'); params.push(category) }
+      else { where.push('p.category = $' + (params.length + 1)); params.push(category) }
+    }
+    if (minPrice !== null) {
+      if (isSqlite) { where.push('p.price_cents >= ?'); params.push(Math.floor(minPrice)) }
+      else { where.push('p.price_cents >= $' + (params.length + 1)); params.push(Math.floor(minPrice)) }
+    }
+    if (maxPrice !== null) {
+      if (isSqlite) { where.push('p.price_cents <= ?'); params.push(Math.floor(maxPrice)) }
+      else { where.push('p.price_cents <= $' + (params.length + 1)); params.push(Math.floor(maxPrice)) }
+    }
+
+    let orderBy = 'p.created_at DESC'
+    if (sort === 'price_asc') orderBy = 'p.price_cents ASC'
+    else if (sort === 'price_desc') orderBy = 'p.price_cents DESC'
+
+    let sql
+    if (isSqlite) {
+      sql = `SELECT p.id, p.title, p.description, p.price_cents, p.list_price_cents, p.status FROM products p WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT ${limit} OFFSET ${page * limit}`
+    } else {
+      // need to use $n param indexes already in params; OFFSET and LIMIT as literals safe when numbers
+      sql = `SELECT p.id, p.title, p.description, p.price_cents, p.list_price_cents, p.status FROM products p WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT ${limit} OFFSET ${page * limit}`
+    }
+
+    const result = await query(sql, params)
     return res.json({ products: result.rows })
   } catch (err) {
     console.error('Error fetching products', err)
