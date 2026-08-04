@@ -47,14 +47,21 @@ export default function CheckoutPage() {
       setPreview(null)
       return
     }
-    fetch(`${API_BASE}/api/checkout/preview`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: items.map((it) => ({ variant_id: it.variant_id, qty: it.qty })), coupon_code: couponCode || undefined })
-    })
-      .then((r) => r.json())
-      .then((data) => setPreview(data))
-      .catch(() => setPreview(null))
+    (async () => {
+      try {
+        const s = await supabase.auth.getSession()
+        const token = s.data.session?.access_token
+        const res = await fetch(`${API_BASE}/api/checkout/preview`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ items: items.map((it) => ({ variant_id: it.variant_id, qty: it.qty })), coupon_code: couponCode || undefined })
+        })
+        const data = await res.json()
+        setPreview(data)
+      } catch (e) {
+        setPreview(null)
+      }
+    })()
   }, [couponCode, items.length])
 
   useEffect(() => {

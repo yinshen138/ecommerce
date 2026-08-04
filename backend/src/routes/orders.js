@@ -11,7 +11,7 @@ function q(isSqlite, sqliteSql, pgSql, params) {
   return query(isSqlite ? sqliteSql : pgSql, params)
 }
 
-async function calculatePricing(isSqlite, items, couponCode, isFlashSale) {
+async function calculatePricing(isSqlite, items, couponCode, isFlashSale, userId=null) {
   if (items.length === 0) return { error: 'empty_items', status: 400 }
   if (couponCode && isFlashSale) return { error: 'coupon_conflicts_flash_sale', status: 400 }
 
@@ -62,14 +62,45 @@ async function calculatePricing(isSqlite, items, couponCode, isFlashSale) {
     if (discount_cents > subtotal) discount_cents = subtotal
   }
 
+  // membership discount lookup
+  let memberDiscountPercent = 0
+  if (userId) {
+    try {
+      if (isSqlite) {
+        const mres = await query('SELECT level, points FROM memberships WHERE user_id = ? LIMIT 1', [userId])
+        if (mres.rows && mres.rows[0]) {
+          const lvl = mres.rows[0].level
+          if (lvl === 'silver') memberDiscountPercent = 5
+          else if (lvl === 'gold') memberDiscountPercent = 10
+          else if (lvl === 'platinum') memberDiscountPercent = 15
+        }
+      } else {
+        const mres = await query('SELECT level, points FROM memberships WHERE user_id = $1 LIMIT 1', [userId])
+        if (mres.rows && mres.rows[0]) {
+          const lvl = mres.rows[0].level
+          if (lvl === 'silver') memberDiscountPercent = 5
+          else if (lvl === 'gold') memberDiscountPercent = 10
+          else if (lvl === 'platinum') memberDiscountPercent = 15
+        }
+      }
+    } catch (e) {
+      console.warn('membership lookup failed', e)
+    }
+  }
+
   const shipping_cents = subtotal >= 5000 ? 0 : 800
-  const total_cents = Math.max(0, subtotal + shipping_cents - discount_cents)
+  // apply coupon first then membership percent on subtotal-discount (or apply membership on subtotal?)
+  const subtotalAfterCoupon = Math.max(0, subtotal - discount_cents)
+  const memberDiscountCents = Math.floor(subtotalAfterCoupon * (memberDiscountPercent / 100))
+  const total_cents = Math.max(0, subtotalAfterCoupon + shipping_cents - memberDiscountCents)
   return {
     data: {
       items: details,
       subtotal_cents: subtotal,
       shipping_cents,
-      discount_cents,
+      discount_cents: discount_cents + memberDiscountCents,
+      member_discount_percent: memberDiscountPercent,
+      member_discount_cents: memberDiscountCents,
       total_cents,
       coupon: coupon ? { id: coupon.id, code: coupon.code } : null
     }
@@ -152,16 +183,17 @@ module.exports = function attachOrderRoutes(app) {
     const items = Array.isArray(req.body.items) ? req.body.items : []
     const couponCode = req.body.coupon_code
     const isFlashSale = !!req.body.is_flash_sale
+      const userId = req.user && req.user.profile && req.user.profile.id ? req.user.profile.id : null
 
-    try {
-      const priced = await calculatePricing(isSqlite, items, couponCode, isFlashSale)
-      if (priced.error) return res.status(priced.status || 400).json(priced)
-      return res.json(priced.data)
-    } catch (err) {
-      console.error('Error previewing checkout', err)
-      return res.status(500).json({ error: 'internal_error' })
-    }
-  })
+      try {
+        const priced = await calculatePricing(isSqlite, items, couponCode, isFlashSale, userId)
+        if (priced.error) return res.status(priced.status || 400).json(priced)
+        return res.json(priced.data)
+      } catch (err) {
+        console.error('Error previewing checkout', err)
+        return res.status(500).json({ error: 'internal_error' })
+      }
+    })
 
   app.post('/api/orders', async (req, res) => {
     const isSqlite = !process.env.DATABASE_URL
